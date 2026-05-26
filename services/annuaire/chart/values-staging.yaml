@@ -1,0 +1,10 @@
+# Surcharges staging
+
+ingress:
+  enabled: true
+  host: annuaire.staging.devhub.local
+
+env:
+  LOG_LEVEL: info
+
+replicaCount: 2
