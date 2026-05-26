@@ -1,34 +1,33 @@
-# Squelette à compléter — étape 3 du TP.
-# Contraintes (non négociables, lisez le polycopié) :
-#   - multi-stage,
-#   - image finale ≤ 200 Mo,
-#   - utilisateur non-root,
-#   - pas de secret en ENV/ARG,
-#   - LABEL org.opencontainers.image.source pointant vers le dépôt Git.
-
 # ---- Stage 1 : build / install des dépendances ----
-# TODO : choisissez une image de base reproductible (pin par digest ou par tag immuable).
 FROM node:20-alpine AS build
 
 WORKDIR /app
 
-# TODO : copiez le package.json puis lancez `npm ci` AVANT de copier le code.
-# Indice : ça optimise le cache Docker.
+COPY package.json package-lock.json* ./
 
-# TODO : copiez le reste du code source.
+# npm ci si lock présent, sinon npm install
+RUN if [ -f package-lock.json ]; then \
+        npm ci --omit=dev; \
+    else \
+        npm install --omit=dev; \
+    fi
+
+COPY src ./src
 
 # ---- Stage 2 : image runtime ----
-# TODO : repartez d'une image runtime minimale (Alpine, Distroless, etc.).
 FROM node:20-alpine AS runtime
 
-# TODO : ajoutez le LABEL org.opencontainers.image.source.
+LABEL org.opencontainers.image.source="https://github.com/ViartFelix/infra-2-bz"
 
 WORKDIR /app
 
-# TODO : copiez depuis le stage `build` uniquement ce qui est nécessaire au runtime
-# (node_modules et src/), pas plus.
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/src ./src
+COPY --from=build /app/package.json ./package.json
 
-# TODO : créez un utilisateur non-root et passez en USER. NE PAS rester en root.
+RUN addgroup -g 1001 app && adduser -D -u 1001 -G app app \
+    && chown -R app:app /app
+USER 1001
 
 ENV PORT=8080 \
     LOG_LEVEL=info \
@@ -36,5 +35,4 @@ ENV PORT=8080 \
 
 EXPOSE 8080
 
-# TODO : configurez la commande de démarrage.
-# CMD ["node", "src/index.js"]
+CMD ["node", "src/index.js"]
