@@ -32,7 +32,7 @@ spec:
   # de namespaces. Réfléchissez à ce qu'il faut whitelister minimum.
   clusterResourceWhitelist:
     - group: ""
-        kind: Namespace
+      kind: Namespace
 
   # Ressources namespace-scoped autorisées. Par défaut * = tout. C'est OK
   # pour le TP, mais en prod vous restreindriez.
