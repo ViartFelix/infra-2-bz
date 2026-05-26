@@ -20,12 +20,8 @@ spec:
   project: devhub
 
   source:
-    # TODO : remplacez par l'URL HTTPS de votre fork de ce repo.
-    repoURL: https://github.com/<votre-handle>/devhub-campus.git
+    repoURL: https://github.com/ViartFelix/infra-2-bz.git
     targetRevision: main
-    # TODO : indiquez ici le chemin où ArgoCD va chercher les manifestes
-    # YAML à appliquer. Réfléchissez à ce qui doit (et ne doit pas) être
-    # dans ce dossier.
     path: platform/apps/dev
     directory:
       recurse: true
@@ -40,6 +36,6 @@ spec:
   syncPolicy:
     automated:
       prune: false
-      selfHeal: false
+      selfHeal: true
     syncOptions:
       - CreateNamespace=true
