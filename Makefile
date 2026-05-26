@@ -74,7 +74,7 @@ hosts-print:
 	@echo "127.0.0.1  notif.devhub.local"
 
 # TODO : adaptez GHCR_USER à votre compte GitHub.
-GHCR_USER ?= changeme
+GHCR_USER ?= RaphaelAz
 SHA := $(shell git rev-parse --short HEAD 2>/dev/null || echo dev)
 
 images:
