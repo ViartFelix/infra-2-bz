@@ -177,3 +177,28 @@ Avec le pattern **App of Apps**, la root `Application` surveille en continu le d
 ### Screenshot — 4 Applications dans l'UI ArgoCD
 ![[4-services.png]]
 
+## Etape 7
+
+### Choix du generator : `pullRequest`
+
+On utilise le generator **`pullRequest`** plutôt que `git`. Raison : le `pullRequest` generator génère une `Application` par PR ouverte sur le repo, ce qui correspond exactement au besoin de preview éphémère — la preview apparaît quand la PR est ouverte, disparaît quand elle est mergée ou fermée. Le `git` generator sur branches est plus simple mais moins précis : il génère une preview pour toute branche existante, même sans PR associée.
+
+### Token GitHub
+
+Création d'un Personal Access Token (classic) avec le scope `repo` uniquement, pour que ArgoCD puisse lire les PRs via l'API GitHub sans droits superflus.
+
+![[token-creation.png]]
+
+Le token est stocké dans le cluster en tant que Secret Kubernetes dans le namespace `argocd` :
+
+```bash
+kubectl create secret generic github-token \
+  --from-literal=token=<TOKEN> \
+  -n argocd
+```
+
+### ApplicationSet annuaire-preview
+
+L'`ApplicationSet` génère automatiquement une `Application` par PR ouverte sur le repo. Chaque preview est déployée dans son propre namespace `devhub-preview-<branch_slug>` et exposée sur son propre ingress.
+
+`prune: true` est indispensable ici : quand la PR est fermée/mergée, ArgoCD supprime l'`Application` générée et donc toutes les ressources K8s associées. Sans `prune`, les previews s'accumulent indéfiniment.
