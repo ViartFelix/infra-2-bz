@@ -19,20 +19,57 @@
 ## Étape 1 -  Comprendre GitOps avant d’écrire la moindre ligne
 ### 1) Schéma
 
+```
+Modèle PUSH (TP 1)                     Modèle PULL (TP 2 — GitOps)
+──────────────────────────────          ──────────────────────────────────────
+  Dev                                     Dev
+   │ git push                              │ git push
+   ▼                                       ▼
+  GitHub                                  GitHub (source de vérité)
+   │                                       │
+   ▼                                       │  polling / webhook
+  CI (GitHub Actions)                    ArgoCD controller (dans le cluster)
+   │ kubectl apply                         │  détecte le drift
+   │ (a les droits cluster)               │  réconcilie
+   ▼                                       ▼
+  Cluster Kubernetes                     Cluster Kubernetes
+```
+
+**Push** : c’est la CI qui a les clés du cluster et qui pousse les changements.
+**Pull** : ArgoCD tourne dans le cluster et tire lui-même l’état désiré depuis Git. La CI ne touche plus jamais au cluster.
+
 ### 2) Tableau
 
-| Question                                                   | Push(kubectl apply en CI) | Pull (ArgoCD) |
-| ---------------------------------------------------------- | ------------------------- | ------------- |
-| Qui a les droits sur le cluster ?                          |                           |               |
-| Où est l’historique des changements ?                      |                           |               |
-| Que se passe-t-il si un dev modifie le cluster à la main ? |                           |               |
-| Comment ajouter un environnement de plus ?                 |                           |               |
-| Comment faire un rollback ?                                |                           |               |
-| Combien de pipelines pour 30 services ?                    |                           |               |
-| Qui voit en direct ce qui tourne ?                         |                           |               |
+| Question                                                   | Push (`kubectl apply` en CI)                                              | Pull (ArgoCD)                                                                     |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Qui a les droits sur le cluster ?                          | La CI (GitHub Actions) — elle détient un kubeconfig avec droits cluster   | ArgoCD uniquement — les devs n’ont pas de kubeconfig                              |
+| Où est l’historique des changements ?                      | Dans le Git des manifests ET dans les logs CI (deux endroits)             | Dans Git uniquement — chaque changement de cluster = un commit                   |
+| Que se passe-t-il si un dev modifie le cluster à la main ? | Drift silencieux : personne ne le voit jusqu’au prochain `apply`          | ArgoCD passe immédiatement en `OutOfSync` ; si `selfHeal: true`, il corrige seul |
+| Comment ajouter un environnement de plus ?                 | Copier les overlays, créer namespace, modifier la pipeline CI             | Ajouter un fichier `Application` dans `platform/apps/`. C’est tout.              |
+| Comment faire un rollback ?                                | Relancer la CI sur l’ancien commit, ou `kubectl rollout undo`             | `git revert` du commit fautif — ArgoCD re-converge automatiquement               |
+| Combien de pipelines pour 30 services ?                    | 30 pipelines, chacune avec accès cluster                                  | 0 pipeline ne touche au cluster ; ArgoCD centralise tout depuis `platform/`      |
+| Qui voit en direct ce qui tourne ?                         | Seulement ceux qui ont accès à `kubectl` ou Freelens                      | Tout le monde avec accès à l’UI ArgoCD : version, état, sync en un coup d’œil   |
 
-### 3) Prises de position
+### 3) Prise de position
+
+Pour mes futurs projets perso, je commencerais par le modèle **push** (`kubectl apply` en CI). La mise en place est immédiate et ne nécessite pas d’installer un agent supplémentaire dans le cluster. ArgoCD apporte une vraie valeur dès qu’on gère plusieurs services ou plusieurs environnements en parallèle — c’est à ce seuil que le modèle pull devient le meilleur choix.
+
 ## Étape 2
+
+### Glossaire ArgoCD
+
+| Terme | Définition | Exemple dans mon projet | À ne pas confondre avec… |
+| ----- | ---------- | ----------------------- | ------------------------ |
+| `Application` | Ressource CRD ArgoCD qui relie un dépôt Git (ou chart Helm) à un namespace cible dans le cluster. C’est l’unité de déploiement d’ArgoCD. | `annuaire-dev` : lit `services/annuaire/chart` sur `main` et déploie dans `devhub-dev` | Une application au sens métier (le service annuaire) ou au sens K8s (un Deployment) |
+| `AppProject` | Périmètre de sécurité qui limite les dépôts sources autorisés, les destinations (cluster + namespace) et les ressources K8s manipulables. | `devhub` : autorise uniquement les repos du binôme et les namespaces `devhub-*` | Un projet Git ou un namespace K8s |
+| `Source` | Référence exacte d’où ArgoCD lit la configuration : repoURL + path + targetRevision (branche/tag/SHA) | `repoURL: github.com/ViartFelix/infra-2-bz, path: services/annuaire/chart, targetRevision: main` | L’URL du repo Git en général — ici c’est un objet précis avec branche et chemin |
+| `Destination` | Le couple `server` (URL de l’API K8s) + `namespace` où les ressources seront créées | `server: https://kubernetes.default.svc, namespace: devhub-dev` | Une URL HTTP quelconque |
+| `Sync` | L’acte d’appliquer l’état décrit dans Git vers le cluster. Peut être déclenché manuellement (bouton), automatiquement (polling) ou en self-heal (correction automatique de drift) | Après un `git push` sur `values-dev.yaml`, ArgoCD sync et met à jour le Deployment | Un `kubectl apply` brut — ArgoCD gère l’ordre, les hooks et les waves en plus |
+| `Prune` | Suppression des ressources présentes dans le cluster mais absentes de Git lors d’une sync. Désactivé par défaut. | Si on retire `service.yaml` du chart et que `prune: true`, ArgoCD supprime le Service K8s | Un `kubectl delete` manuel — ici c’est déclenché automatiquement par un diff Git |
+| `App of Apps` | Pattern où une `Application` racine a pour source un dossier contenant d’autres manifests `Application`. Elle les crée et les gère. | `root` pointe vers `platform/apps/dev/` qui contient `annuaire.yaml`, `planning.yaml`, `notif.yaml` | Un Helm chart qui dépend d’autres charts (sub-charts) |
+| `ApplicationSet` | Ressource qui génère dynamiquement plusieurs `Application` à partir d’un generator (liste, branches Git, PRs ouvertes…) | `platform/apps/preview/annuaire.yaml` : crée une Application par branche `feature/*` | Un script qui boucle — ici c’est une ressource K8s déclarative |
+| `Sync wave` | Annotation (`argocd.argoproj.io/sync-wave`) qui ordonne les ressources lors d’une sync. Les waves négatives passent en premier. | `ConfigMap` en wave `-1` (appliqué avant), `Deployment` en wave `0` | Une boucle de retry ou un concept de vague de déploiement progressif |
+| `Hook` (`PreSync`, `Sync`, `PostSync`) | Job ou ressource K8s annoté pour s’exécuter à une phase précise de la synchronisation. Un hook `PreSync` qui échoue bloque la sync. | Un Job de migration de schéma BDD annoté `PreSync` : il tourne avant que le Deployment soit mis à jour | Un trigger Git (webhook) ou un hook shell |
 
 ## Étape 3
 ### Dockerfile annuaire
@@ -45,7 +82,14 @@ Test si l'application marche correctement
 
 ![[student-list.png]]
 
-TODO: mettre le code pour le healthz
+L'endpoint `/healthz` est défini dans `src/index.js` :
+
+```javascript
+app.get('/healthz', (_, res) => res.json({ ok: true, service: 'annuaire' }));
+```
+
+Il retourne `200 OK` avec le JSON `{ "ok": true, "service": "annuaire" }`. C'est ce que les probes `readinessProbe` et `livenessProbe` du Deployment Helm interrogent.
+
 ![[test-healthz.png]]
 
 ### Push
@@ -55,8 +99,32 @@ Push sur GHCR pour voir si tout vas bien.
 ## Étape 4
 
 ### Changements
-TODO: mettre les changements des fichiers mentionnés dans le commit ci-dessous.
-https://github.com/ViartFelix/infra-2-bz/commit/2e5cc5557a81a45e83f360badda7595db17b9f53
+
+Commit de référence : https://github.com/ViartFelix/infra-2-bz/commit/2e5cc5557a81a45e83f360badda7595db17b9f53
+
+Le chart Helm du service `annuaire` (`services/annuaire/chart/`) a été complété avec les fichiers suivants :
+
+**`Chart.yaml`** — métadonnées du chart (nom, version, appVersion).
+
+**`values.yaml`** — valeurs par défaut exposant les paramètres clés :
+- `image.repository` / `image.tag` / `image.pullPolicy`
+- `replicaCount`
+- `service.port` / `service.targetPort`
+- `env.LOG_LEVEL`
+- `ingress.enabled` / `ingress.host`
+- `probes.readiness` / `probes.liveness` (chemin `/healthz`)
+- `securityContext` (non-root, `runAsUser: 1001`, readOnly filesystem)
+- `resources` (requests + limits CPU/mémoire)
+
+**`templates/_helpers.tpl`** — helpers réutilisables : `annuaire.fullname`, `annuaire.labels`, `annuaire.selectorLabels`.
+
+**`templates/deployment.yaml`** — Deployment paramétré via les values, avec `readinessProbe` et `livenessProbe` sur `/healthz` et `securityContext` aligné avec le `USER 1001` du Dockerfile.
+
+**`templates/service.yaml`** — Service de type `ClusterIP` exposant le port défini dans `values.yaml`.
+
+**`templates/ingress.yaml`** — Ingress conditionnel (`{{- if .Values.ingress.enabled }}`) sur `ingress-nginx`.
+
+**`values-dev.yaml`** / **`values-preview.yaml`** / **`values-staging.yaml`** — surcharges par environnement (tag d'image, nombre de répliques, host d'ingress, LOG_LEVEL).
 
 ### Commandes Helm
 ![[commandes-helm.png]]
@@ -80,9 +148,32 @@ On ne modifie qu'un seul des 3 services (ici annuaire, pas les autres qui sont n
 
 ![[argo-sync-2.png]]
 
+### selfHeal vs prune : comparaison et cas dangereux
+
+**`selfHeal: true`** — ArgoCD surveille en permanence l'état réel du cluster. Si quelqu'un modifie une ressource à la main (`kubectl edit`, `kubectl scale`…), ArgoCD la remet automatiquement à l'état décrit dans Git dans les secondes qui suivent.
+
+*Cas où c'est dangereux :* un SRE fait un `kubectl scale deploy annuaire --replicas=0` en urgence pour couper le trafic pendant un incident. ArgoCD voit le drift et remet immédiatement les répliques à 2. Le service redémarre contre la volonté de l'opérateur. Sur un cluster de prod avec `selfHeal: true`, toute intervention manuelle d'urgence est écrasée sans délai.
+
+**`prune: true`** — lors d'une sync, ArgoCD supprime du cluster toutes les ressources qui ne sont plus présentes dans Git.
+
+*Cas où c'est dangereux :* on renomme un fichier `service.yaml` en `svc.yaml` dans le chart sans changer son contenu. Helm génère la même ressource K8s, mais ArgoCD voit l'ancien `Service` comme "absent de Git" et le supprime — coupant le trafic vers tous les pods — avant même de créer le nouveau. Sur un service exposé en prod, ça provoque une interruption de service non planifiée le temps du sync.
+
 ## Etape 6
-Config du root-app.yaml : Pourquoi prune à false et selfHeal à true :
-- selfHeal = se base sur le main et applique les changements qui sont sur la main donc le git est source de vérité
-- prune = Suppression si différent, exemple si je supprime une ressource accidentellement alors cela sera considéré comme un changement et argo supprimera celle-ci.
+
+### Config root-app.yaml
+
+Pourquoi `prune: false` et `selfHeal: true` sur la root Application :
+- **selfHeal: true** — Git est la source de vérité. Si quelqu'un modifie une ressource à la main, ArgoCD la remet dans l'état décrit sur `main` automatiquement.
+- **prune: false** — on ne veut pas qu'une erreur de chemin ou un commit accidentel supprime toutes les Applications enfants d'un coup. Sur la root, `prune: true` serait trop risqué : supprimer un fichier `annuaire.yaml` de `platform/apps/dev/` détruirait instantanément tout le service en dev.
 
 ![[root-app.png]]
+
+### Pourquoi App of Apps ≠ `kubectl apply -f apps/dev/`
+
+Un `kubectl apply -f platform/apps/dev/` crée les ressources `Application` une seule fois, de façon impérative. Si on ajoute ensuite un fichier dans ce dossier, il faut relancer la commande manuellement. Si on en supprime un, il faut faire un `kubectl delete` séparé. La CI doit avoir accès au cluster pour le faire.
+
+Avec le pattern **App of Apps**, la root `Application` surveille en continu le dossier `platform/apps/dev/` dans Git. Ajouter un service = commiter un fichier YAML. Le supprimer = le retirer de Git. ArgoCD détecte le changement et crée ou supprime les Applications enfants automatiquement, sans que personne ne touche au cluster. C'est la même logique GitOps appliquée à ArgoCD lui-même : l'outil se gère via Git, pas via des commandes impératives.
+
+### Screenshot — 4 Applications dans l'UI ArgoCD
+
+TODO: screenshot à ajouter (root + annuaire-dev + planning-dev + notif-dev)
