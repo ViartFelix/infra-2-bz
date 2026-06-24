@@ -197,6 +197,10 @@
   },
   "active": "0dfbb2269cd3a44d",
   "lastOpenFiles": [
+    "platform/apps/dev/planning.yaml.tmp.16704.40a32eee86e2",
+    "platform/apps/dev/notif.yaml.tmp.16704.f18e31b86cc9",
+    "images/step_6/4-services.png",
+    "images/step_6/Screenshot 2026-06-24 at 19-34-28 Applications Tiles - Argo CD.png",
     "REPONSES.md~",
     "services/annuaire/chart/values-staging.yaml",
     "images/step_6/root-app.png",
@@ -208,8 +212,6 @@
     "images/step_4/before-sync-2.png",
     "images/step_4/argo-sync-2.png",
     "images/step_4/argo-sync.png",
-    "images/step_4/one-service.png",
-    "images/one-service.png",
     "POLYCOPIE-ARGOCD.pdf",
     "REPONSES.md",
     "images/step_4",
@@ -218,8 +220,6 @@
     "images/step_1",
     "POLYCOPIE-ARGOCD.md",
     "images/step_5",
-    "README.md",
-    "images/step_0",
-    "images"
+    "README.md"
   ]
 }

@@ -23,6 +23,8 @@ spec:
 
   destinations:
     - server: https://kubernetes.default.svc
+      namespace: argocd
+    - server: https://kubernetes.default.svc
       namespace: devhub-dev
     - server: https://kubernetes.default.svc
       namespace: devhub-preview-*

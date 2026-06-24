@@ -175,5 +175,5 @@ Un `kubectl apply -f platform/apps/dev/` crée les ressources `Application` une 
 Avec le pattern **App of Apps**, la root `Application` surveille en continu le dossier `platform/apps/dev/` dans Git. Ajouter un service = commiter un fichier YAML. Le supprimer = le retirer de Git. ArgoCD détecte le changement et crée ou supprime les Applications enfants automatiquement, sans que personne ne touche au cluster. C'est la même logique GitOps appliquée à ArgoCD lui-même : l'outil se gère via Git, pas via des commandes impératives.
 
 ### Screenshot — 4 Applications dans l'UI ArgoCD
+![[4-services.png]]
 
-TODO: screenshot à ajouter (root + annuaire-dev + planning-dev + notif-dev)
