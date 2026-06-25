@@ -2,8 +2,8 @@
 # Surchargées par values-dev.yaml et values-preview.yaml selon l'environnement.
 
 image:
-  repository: ghcr.io/raphaelaz/annuaire
-  tag: "2b4a27e"
+  repository: ghcr.io/viartfelix/annuaire
+  tag: "6f54102bb6a3e7a5a9adc8991d1dad758c169b5c"
   pullPolicy: IfNotPresent
 
 # TODO : combien de répliques par défaut ?

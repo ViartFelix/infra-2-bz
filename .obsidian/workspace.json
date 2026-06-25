@@ -197,6 +197,7 @@
   },
   "active": "0dfbb2269cd3a44d",
   "lastOpenFiles": [
+    "services/annuaire/chart/values.yaml.tmp.24684.8c4ef76d79f3",
     "REPONSES.md.tmp.24684.6d892b5c49b9",
     "images/step_7/argocd_post_pr_close.png",
     "images/step_7/Screenshot 2026-06-25 at 18-39-17 Applications Tiles - Argo CD.png",
@@ -217,7 +218,6 @@
     "platform/apps/dev/notif.yaml.tmp.16704.f18e31b86cc9",
     "REPONSES.md~",
     "services/annuaire/chart/values-staging.yaml",
-    "images/step_6",
     "REPONSES.md",
     "POLYCOPIE-ARGOCD.md",
     "README.md"
