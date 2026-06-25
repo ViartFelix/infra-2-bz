@@ -202,3 +202,23 @@ kubectl create secret generic github-token \
 L'`ApplicationSet` génère automatiquement une `Application` par PR ouverte sur le repo. Chaque preview est déployée dans son propre namespace `devhub-preview-<branch_slug>` et exposée sur son propre ingress.
 
 `prune: true` est indispensable ici : quand la PR est fermée/mergée, ArgoCD supprime l'`Application` générée et donc toutes les ressources K8s associées. Sans `prune`, les previews s'accumulent indéfiniment.
+
+### PR de démonstration
+
+Ouverture d'une PR depuis la branche `feature/demo-preview` vers `main`. Le `pullRequest` generator d'ArgoCD interroge l'API GitHub toutes les 60 secondes (`requeueAfterSeconds: 60`) et détecte la PR ouverte.
+
+![[pr_demo_open.png]]
+
+Dans la minute suivant l'ouverture de la PR, ArgoCD génère automatiquement une `Application` nommée `annuaire-preview-feature-demo-preview` dans le namespace `devhub-preview-feature-demo-preview`, sans aucune intervention manuelle sur le cluster.
+
+![[app_preview_argocd.png]]
+
+### Suppression de la preview
+
+Fermeture de la PR sur GitHub. ArgoCD détecte la disparition de la PR lors du prochain polling (60 secondes) et supprime automatiquement l'`Application` générée grâce à `prune: true`.
+
+![[pr_close.png]]
+
+L'UI ArgoCD après suppression : l'Application `annuaire-preview-feature-demo-preview` a disparu, ainsi que toutes les ressources K8s associées dans le namespace `devhub-preview-feature-demo-preview`. Aucune commande `kubectl delete` n'a été nécessaire.
+
+![[argocd_post_pr_close.png]]
