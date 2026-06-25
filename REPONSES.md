@@ -222,3 +222,78 @@ Fermeture de la PR sur GitHub. ArgoCD détecte la disparition de la PR lors du p
 L'UI ArgoCD après suppression : l'Application `annuaire-preview-feature-demo-preview` a disparu, ainsi que toutes les ressources K8s associées dans le namespace `devhub-preview-feature-demo-preview`. Aucune commande `kubectl delete` n'a été nécessaire.
 
 ![[argocd_post_pr_close.png]]
+
+
+## Étape 8 — Drift, rollback, hooks, sync waves
+
+### 1. Drift et selfHeal
+
+**Manipulation :** `kubectl scale deploy annuaire-dev-annuaire -n devhub-dev --replicas=5`
+
+**Observation :** ArgoCD a détecté le drift et corrigé automatiquement le nombre de répliques à `1` (valeur de `values-dev.yaml`) avant même qu'on puisse voir l'état `OutOfSync` dans l'UI. Le Deployment est immédiatement revenu à son état Git.
+
+**Conclusion :** avec `selfHeal: true`, tout changement manuel sur le cluster est écrasé quasi instantanément. C'est la promesse GitOps : Git est l'unique source de vérité. Un opérateur qui tente une intervention d'urgence via `kubectl` verra son changement annulé sans avertissement.
+
+![[drift_command.png]]
+
+![[drift_creation.png]]
+
+---
+
+### 2. Image inexistante — Synced + Degraded
+
+**Manipulation :** commit qui change `image.tag` pour un tag qui n'existe pas (`tag-qui-nexiste-pas`).
+
+**Observation :** ArgoCD sync avec succès côté manifest (le YAML est valide), mais le pod reste en `ImagePullBackOff`. L'Application affiche `Synced + Degraded` — ArgoCD a bien appliqué ce que Git décrivait, mais Kubernetes ne peut pas exécuter le pod.
+
+**Conclusion :** ArgoCD ne valide pas que l'image existe réellement avant de syncer. `Synced` signifie "Git appliqué", pas "service fonctionnel". C'est pourquoi `Degraded` peut coexister avec `Synced`.
+
+![[synced_degraded.png]]
+
+---
+
+### 3. Rollback par git revert
+
+**Manipulation :** `git revert` du commit fautif, push sur `main`.
+
+**Observation :** ArgoCD détecte le nouveau commit, re-sync automatiquement, le pod repart avec le bon tag d'image. Le service redevient `Healthy`.
+
+**Conclusion :** le rollback GitOps se fait en une commande Git, sans toucher au cluster. L'historique est préservé (le revert crée un commit, il n'efface pas l'historique). Durée observée : moins de 2 minutes entre le push et le retour à `Healthy`.
+
+![[rollback_revert.png]]
+
+---
+
+### 4. Hook PreSync — migration avant déploiement
+
+**Manipulation :** ajout d'un Job annoté `argocd.argoproj.io/hook: PreSync` qui logge `migration ok`.
+
+**Observation :** à la sync suivante, le Job est créé et exécuté *avant* que le Deployment ne soit mis à jour. Si le Job échoue, la sync est bloquée et le Deployment n'est pas touché.
+
+**Conclusion :** les hooks `PreSync` permettent de garantir l'ordre des opérations — typiquement une migration de schéma BDD avant le déploiement du nouveau code. Un hook qui échoue est un garde-fou : le service ne passe pas en production dans un état incohérent.
+
+![[hook_presync.png]]
+
+---
+
+### 5. Sync waves — ordre d'application des ressources
+
+**Manipulation :** annotation `argocd.argoproj.io/sync-wave: "-1"` sur un ConfigMap, `"0"` sur le Deployment.
+
+**Observation :** à la sync, le ConfigMap est appliqué en premier. En le rendant invalide, le Deployment ne démarre pas — la wave 0 attend que la wave -1 soit `Healthy`.
+
+**Conclusion :** les sync waves permettent de contrôler l'ordre d'application des ressources au sein d'une même sync. Différent des hooks : les waves s'appliquent à toutes les ressources normales, les hooks sont des Jobs éphémères à une phase précise.
+
+![[sync_waves.png]]
+
+---
+
+### 6. Prune — suppression via Git
+
+**Manipulation :** activation de `prune: true` + suppression de `service.yaml` du chart, commit + push.
+
+**Observation :** à la sync, ArgoCD supprime le `Service` K8s car il n'est plus présent dans Git. Le trafic vers les pods est coupé.
+
+**Conclusion :** `prune: true` rend Git la source de vérité absolue — toute ressource absente de Git disparaît du cluster. Puissant mais dangereux : un fichier supprimé par erreur peut interrompre un service en production sans avertissement préalable.
+
+![[prune_delete.png]]
