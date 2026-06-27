@@ -296,13 +296,19 @@ Changement du tag dans `values.yaml` et push :
 
 ### 5. Sync waves — ordre d'application des ressources
 
-**Manipulation :** annotation `argocd.argoproj.io/sync-wave: "-1"` sur un ConfigMap, `"0"` sur le Deployment.
+**Manipulation :** ajout d'un `ConfigMap` (`configmap.yaml`) annoté `argocd.argoproj.io/sync-wave: "-1"` et annotation `argocd.argoproj.io/sync-wave: "0"` sur le Deployment.
 
-**Observation :** à la sync, le ConfigMap est appliqué en premier. En le rendant invalide, le Deployment ne démarre pas — la wave 0 attend que la wave -1 soit `Healthy`.
+![[update_services.png]]
 
-**Conclusion :** les sync waves permettent de contrôler l'ordre d'application des ressources au sein d'une même sync. Différent des hooks : les waves s'appliquent à toutes les ressources normales, les hooks sont des Jobs éphémères à une phase précise.
+**Observation :** à la sync, ArgoCD applique d'abord le ConfigMap (wave -1) à 12:23:36, puis le Job PreSync à 12:23:38, et enfin le Deployment, le Service et l'Ingress (wave 0) à 12:23:42. L'ordre est garanti : la wave 0 ne démarre pas tant que la wave -1 n'est pas `Synced`.
+
+![[pull_manip_5.png]]
+
+L'UI ArgoCD après sync montre le ConfigMap `annuaire-dev-annuaire-config` bien présent dans le graphe de ressources, créé "a minute ago" contrairement aux autres ressources à "3 days".
 
 ![[sync_waves.png]]
+
+**Conclusion :** les sync waves permettent de contrôler l'ordre d'application des ressources au sein d'une même sync. Différent des hooks : les waves s'appliquent à des ressources K8s permanentes (ConfigMap, Secret, CRD…), les hooks sont des Jobs éphémères exécutés à une phase précise de la sync.
 
 ---
 
