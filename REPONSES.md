@@ -244,6 +244,8 @@ L'UI ArgoCD après suppression : l'Application `annuaire-preview-feature-demo-pr
 
 **Manipulation :** commit qui change `image.tag` pour un tag qui n'existe pas (`tag-qui-nexiste-pas`).
 
+![[inexistant_tag.png]]
+
 **Observation :** ArgoCD sync avec succès côté manifest (le YAML est valide), mais le pod reste en `ImagePullBackOff`. L'Application affiche `Synced + Degraded` — ArgoCD a bien appliqué ce que Git décrivait, mais Kubernetes ne peut pas exécuter le pod.
 
 **Conclusion :** ArgoCD ne valide pas que l'image existe réellement avant de syncer. `Synced` signifie "Git appliqué", pas "service fonctionnel". C'est pourquoi `Degraded` peut coexister avec `Synced`.
