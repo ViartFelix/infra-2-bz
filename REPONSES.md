@@ -256,24 +256,27 @@ L'UI ArgoCD après suppression : l'Application `annuaire-preview-feature-demo-pr
 
 ### 3. Rollback par git revert
 
-**Manipulation :** `git revert` du commit fautif, push sur `main`.
+**Manipulation :** commit qui change `image.tag` en `tag-rollback-demo` (inexistant) dans `values.yaml`, push sur `main`, puis `git revert HEAD --no-edit` et re-push.
 
-Changement du tag, et push juste après :
+Changement du tag dans `values.yaml` et push :
+
 ![[tag_change.png]]
 
-Après le push et le pull:
+**Observation intermédiaire :** le nouveau pod passe en `ErrImagePull` mais l'ancien pod reste `Running` grâce au rolling update — le service reste disponible. ArgoCD affiche `Progressing + Synced`.
+
 ![[ui_tagweb.png]]
 
-Ui lorsque le tag n'est pas bon: le pod reste en "Progressig":
 ![[ui_tag_result.png]]
 
-**Observation :** ArgoCD détecte le nouveau commit, re-sync automatiquement, le pod repart avec le bon tag d'image. Le service redevient `Healthy`.
-
-**Conclusion :** le rollback GitOps se fait en une commande Git, sans toucher au cluster. L'historique est préservé (le revert crée un commit, il n'efface pas l'historique). Durée observée : moins de 2 minutes entre le push et le retour à `Healthy`.
-
+**Revert :** `git revert HEAD --no-edit && git push`, puis `git pull` en WSL2 pour récupérer le commit de revert :
 
 ![[git_pull_revert.png]]
+
+**Observation finale :** ArgoCD détecte le commit de revert, re-sync automatiquement, le pod repart avec le tag `6f54102`. Le service redevient `Healthy + Synced`.
+
 ![[ui_web_after.png]]
+
+**Conclusion :** le rollback GitOps se fait en une commande Git, sans toucher au cluster. L'historique est préservé (le revert crée un commit, il n'efface pas l'historique). Point notable : le rolling update Kubernetes maintient l'ancien pod en vie pendant la tentative de déploiement du mauvais tag — le service ne subit aucune interruption.
 
 ---
 
