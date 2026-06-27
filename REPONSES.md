@@ -282,13 +282,15 @@ Changement du tag dans `values.yaml` et push :
 
 ### 4. Hook PreSync — migration avant déploiement
 
-**Manipulation :** ajout d'un Job annoté `argocd.argoproj.io/hook: PreSync` qui logge `migration ok`.
+**Manipulation :** ajout d'un Job annoté `argocd.argoproj.io/hook: PreSync` et `hook-delete-policy: HookSucceeded` dans `services/annuaire/chart/templates/presync-hook.yaml`. Le Job simule une migration BDD avec `echo 'migration ok'`.
 
-**Observation :** à la sync suivante, le Job est créé et exécuté *avant* que le Deployment ne soit mis à jour. Si le Job échoue, la sync est bloquée et le Deployment n'est pas touché.
+![[presync_hook.png]]
 
-**Conclusion :** les hooks `PreSync` permettent de garantir l'ordre des opérations — typiquement une migration de schéma BDD avant le déploiement du nouveau code. Un hook qui échoue est un garde-fou : le service ne passe pas en production dans un état incohérent.
+**Observation :** à la sync suivante (`argocd app sync annuaire-dev`), le Job `annuaire-dev-annuaire-migrate` est créé et passe `Running → Succeeded` (statut `PreSync`) **avant** que le Deployment, le Service et l'Ingress ne soient touchés. La sync totale dure 6 secondes. Le Job est ensuite supprimé automatiquement (`HookSucceeded`).
 
-![[hook_presync.png]]
+![[synced_app.png]]
+
+**Conclusion :** les hooks `PreSync` permettent de garantir l'ordre des opérations — typiquement une migration de schéma BDD avant le déploiement du nouveau code. Un hook qui échoue bloque la sync : le Deployment n'est pas mis à jour, ce qui évite de mettre en production du code incompatible avec l'ancien schéma.
 
 ---
 
