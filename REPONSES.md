@@ -258,11 +258,22 @@ L'UI ArgoCD après suppression : l'Application `annuaire-preview-feature-demo-pr
 
 **Manipulation :** `git revert` du commit fautif, push sur `main`.
 
+Changement du tag, et push juste après :
+![[tag_change.png]]
+
+Après le push et le pull:
+![[ui_tagweb.png]]
+
+Ui lorsque le tag n'est pas bon: le pod reste en "Progressig":
+![[ui_tag_result.png]]
+
 **Observation :** ArgoCD détecte le nouveau commit, re-sync automatiquement, le pod repart avec le bon tag d'image. Le service redevient `Healthy`.
 
 **Conclusion :** le rollback GitOps se fait en une commande Git, sans toucher au cluster. L'historique est préservé (le revert crée un commit, il n'efface pas l'historique). Durée observée : moins de 2 minutes entre le push et le retour à `Healthy`.
 
-![[rollback_revert.png]]
+
+![[git_pull_revert.png]]
+![[ui_web_after.png]]
 
 ---
 
