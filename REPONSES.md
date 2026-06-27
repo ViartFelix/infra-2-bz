@@ -314,10 +314,20 @@ L'UI ArgoCD après sync montre le ConfigMap `annuaire-dev-annuaire-config` bien 
 
 ### 6. Prune — suppression via Git
 
-**Manipulation :** activation de `prune: true` + suppression de `service.yaml` du chart, commit + push.
+**Manipulation :** passage de `prune: false` à `prune: true` dans `platform/apps/dev/annuaire.yaml` + suppression de `services/annuaire/chart/templates/service.yaml`, commit et push. Sync forcé avec `argocd app sync annuaire-dev --grpc-web --prune`.
 
-**Observation :** à la sync, ArgoCD supprime le `Service` K8s car il n'est plus présent dans Git. Le trafic vers les pods est coupé.
+Commit montrant les deux changements (`annuaire.yaml` avec `prune: true` et suppression de `service.yaml`) :
 
-**Conclusion :** `prune: true` rend Git la source de vérité absolue — toute ressource absente de Git disparaît du cluster. Puissant mais dangereux : un fichier supprimé par erreur peut interrompre un service en production sans avertissement préalable.
+![[prune_delete_ide.png]]
 
-![[prune_delete.png]]
+**Observation :** la sync passe en `Automated (Prune)`. Le Service `annuaire-dev-annuaire` est supprimé du cluster. `kubectl get svc -n devhub-dev` ne liste plus que les services de `notif` et `planning` — `annuaire` a disparu.
+
+![[sync_prune_cmd.png]]
+
+![[missing_devhub_web.png]]
+
+L'UI ArgoCD confirme : le nœud `svc` a disparu du graphe de ressources. L'Application reste `Healthy + Synced` car Kubernetes ne voit plus de Service à reconcilier.
+
+![[devhub_web_missing_ui.png]]
+
+**Conclusion :** `prune: true` rend Git la source de vérité absolue — toute ressource absente de Git disparaît du cluster à la prochaine sync. Puissant mais dangereux : supprimer un fichier par erreur supprime la ressource K8s en production sans avertissement préalable.
