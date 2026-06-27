@@ -3,7 +3,7 @@
 
 image:
   repository: ghcr.io/viartfelix/annuaire
-  tag: "tag-rollback-demo"
+  tag: "6f54102"
   pullPolicy: IfNotPresent
 
 # TODO : combien de répliques par défaut ?
