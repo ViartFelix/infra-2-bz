@@ -395,3 +395,106 @@ Les métriques sont exposées par `argocd-application-controller` sur le port `8
 | `argocd_app_info` | gauge (0/1 par app) | Donne en temps réel le `health_status` et `sync_status` de chaque Application. Si `health_status != "Healthy"` ou `sync_status != "Synced"`, une alerte peut être déclenchée. |
 | `argocd_app_k8s_request_total` | counter (nb de requêtes) | Compte les appels K8s par app et type de ressource. Un pic soudain indique une boucle de réconciliation ou une tempête de drift — signe qu'une ressource est modifiée en continu hors Git. |
 | `argocd_app_reconcile_count` | counter (nb de réconciliations) | Nombre total de cycles de réconciliation par app. Une valeur qui monte très vite sans sync correspondante indique un drift permanent non résolu — l'app est en conflit continu avec l'état du cluster. |
+
+---
+
+## Étape 11 — Synthèse : ArgoCD et la prod
+
+### Rétrospective TP 1 → TP 2
+
+| Opération | Ressenti avec ArgoCD |
+|---|---|
+| Déployer un service pour la première fois | Plus long à mettre en place (chart Helm + Application), mais une fois en place, chaque déploiement suivant ne demande plus rien. |
+| Déployer une nouvelle version | Rassurant : un commit suffit, ArgoCD applique et on voit l'état en temps réel dans l'UI. Pas de doute sur ce qui tourne. |
+| Faire un rollback | Nettement plus propre qu'au TP 1 : `git revert` + push, et c'est tracé dans l'historique. Moins de 2 minutes observées en TP. |
+| Ouvrir un environnement de plus | Très rapide — un fichier `Application` de 15 lignes. Au TP 1 c'était plusieurs heures de configuration CI. |
+| Donner un env perso à chaque dev | Impressionnant : l'`ApplicationSet` crée la preview automatiquement à l'ouverture de la PR, sans intervention manuelle. |
+| Voir ce qui tourne en ce moment | L'UI ArgoCD est immédiatement lisible — version, état de santé, dernière sync. Bien supérieur à `kubectl get all -A`. |
+| Détecter un `kubectl edit` en douce | ArgoCD passe en `OutOfSync` en moins de 3 minutes. Avec `selfHeal: true`, il corrige avant même qu'on s'en aperçoive. |
+| Auto-réparer un drift | Magique la première fois qu'on voit `selfHeal` remettre les répliques à 1 en quelques secondes après un `kubectl scale`. |
+| Donner les droits à un nouveau dev | Plus structuré qu'un kubeconfig partagé : le RBAC ArgoCD limite précisément ce que le dev peut faire. |
+| Hotfix en urgence à 3h du matin | **Plus contraignant** : il faut ouvrir une PR, attendre ArgoCD. Un `kubectl edit` direct est plus rapide dans l'urgence. |
+| Auditer les changements sur 6 mois | Beaucoup plus fiable : `git log` sur `platform/` donne tout l'historique. Les logs CI du TP 1 expiraient en quelques jours. |
+| Re-déployer le cluster from scratch | **Plus contraignant** : ArgoCD lui-même doit être installé en premier (bootstrap), avant de pouvoir tout re-déployer via Git. C'est le problème de l'œuf et de la poule. |
+| Désinstaller un service | Élégant avec `prune: true` — supprimer le fichier Git suffit. Mais dangereux si on n'a pas bien compris ce que `prune` fait. |
+| Tester un changement risqué | Les previews par branche changent vraiment la donne : on teste sur son propre namespace isolé sans risquer le dev partagé. |
+
+**Deux opérations plus contraignantes avec ArgoCD :**
+
+1. **Hotfix en urgence** — devoir passer par une PR Git à 3h du matin alors qu'un `kubectl edit` réglerait le problème en 30 secondes est une vraie friction. La contrainte est malgré tout justifiée : le `kubectl edit` de 3h du matin sera oublié et écrasé au prochain déploiement. Le passage par Git garantit que le fix est tracé et persistant.
+
+2. **Bootstrap du cluster from scratch** — ArgoCD lui-même n't pas géré par ArgoCD au départ. Il faut installer ArgoCD manuellement avant de pouvoir laisser ArgoCD gérer le reste. Ce problème de bootstrap est inhérent à l'approche GitOps et impose une procédure de réinstallation en deux temps.
+
+**L'opération qui justifie à elle seule ArgoCD :** les **environnements de preview par branche** (`ApplicationSet` + `pullRequest` generator). Donner à chaque développeur un environnement complet et isolé à chaque PR, sans lui donner les droits cluster et sans intervention manuelle, est impossible à reproduire proprement avec un modèle push. C'est ce cas d'usage qui transforme la façon de travailler d'une équipe.
+
+---
+
+### Ce qu'ArgoCD ne sait pas faire
+
+#### 1. Déploiement progressif (canary, blue/green)
+
+**Risque concret :** déployer `annuaire-dev` en l'état chez un client signifie que chaque mise à jour remplace instantanément tous les pods. Si le nouveau code a un bug, 100 % des utilisateurs sont affectés immédiatement. Il n'y a pas de possibilité de n'exposer le nouveau code qu'à 5 % du trafic pour valider avant de généraliser.
+
+**Outil complémentaire :** **Argo Rollouts** — CRD qui remplace le `Deployment` standard par un `Rollout` capable de faire du canary (x% du trafic vers la nouvelle version), du blue/green (bascule atomique), et d'analyser des métriques pour décider de continuer ou d'annuler automatiquement.
+
+**Référence :** https://argoproj.github.io/argo-rollouts/
+
+---
+
+#### 2. Validation des manifests avant sync
+
+**Risque concret :** ArgoCD applique tout ce qui est dans Git sans vérifier si les manifests respectent les politiques de sécurité de l'organisation (pas de conteneur root, pas d'image `:latest`, limites de ressources obligatoires). Un développeur peut pousser un `Deployment` sans `securityContext` et ArgoCD le déploiera sans broncher.
+
+**Outil complémentaire :** **Kyverno** — moteur de policies Kubernetes qui s'installe comme un admission webhook. Il intercepte chaque `kubectl apply` (y compris ceux d'ArgoCD) et refuse les ressources qui violent les règles définies. Alternative : OPA Gatekeeper pour les équipes qui préfèrent le langage Rego.
+
+**Référence :** https://kyverno.io/docs/
+
+---
+
+#### 3. Gestion des secrets dans Git
+
+**Risque concret :** pour connecter `annuaire-dev` à une vraie base de données, il faudrait mettre le mot de passe quelque part. Le mettre dans Git en clair est une faute de sécurité critique. Mais ArgoCD ne propose pas de mécanisme natif pour gérer les secrets — si le secret n'est pas dans Git, ArgoCD ne peut pas le créer.
+
+**Outil complémentaire :** **External Secrets Operator (ESO)** — synchronise des secrets depuis un coffre-fort externe (AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager) vers des `Secret` Kubernetes. Seule la référence au secret est dans Git, jamais la valeur. Alternative légère : **SOPS** (chiffrement symétrique des fichiers de secrets dans Git).
+
+**Référence :** https://external-secrets.io/
+
+---
+
+#### 4. Signature et provenance des images
+
+**Risque concret :** ArgoCD déploie l'image qui est référencée dans `values.yaml`. Si un attaquant compromet GHCR et remplace l'image `ghcr.io/viartfelix/annuaire:6f54102` par une image malveillante avec le même tag, ArgoCD la déploiera sans détecter la substitution. Il n'y a aucune vérification de l'intégrité ou de l'origine de l'image.
+
+**Outil complémentaire :** **cosign** (projet Sigstore) — signe les images OCI avec une clé ou en mode keyless OIDC. Combiné à une admission policy Kyverno ou Connaisseur, le cluster refuse de démarrer toute image non signée ou dont la signature ne correspond pas à l'auteur attendu.
+
+**Référence :** https://docs.sigstore.dev/cosign/overview/
+
+---
+
+#### 5. RBAC multi-équipe sur ArgoCD
+
+**Risque concret :** avec un seul compte `admin` partagé entre plusieurs équipes, n'importe quel développeur peut syncer, modifier ou supprimer l'`Application` d'une autre équipe. Le RBAC configuré à l'étape 9 est un premier niveau, mais il repose sur des comptes locaux — non reliés à l'annuaire d'entreprise (LDAP, GitHub Teams, Google Workspace).
+
+**Outil complémentaire :** **SSO/OIDC** — ArgoCD supporte nativement la délégation d'authentification à un fournisseur OIDC (GitHub OAuth, Dex, Okta). Les groupes de l'annuaire d'entreprise mappent directement vers les rôles ArgoCD via `policy.csv`. Un développeur qui quitte l'équipe perd l'accès en révoquant son compte SSO, sans toucher à ArgoCD.
+
+**Référence :** https://argo-cd.readthedocs.io/en/stable/operator-manual/user-management/
+
+---
+
+#### 6. Disaster recovery applicatif
+
+**Risque concret :** ArgoCD peut re-déployer le code de `annuaire-dev` en quelques minutes sur un nouveau cluster. Mais si le service utilisait une base de données PostgreSQL avec des données, ArgoCD ne sait pas sauvegarder les PersistentVolumes ni exporter les dumps. Après un crash du cluster, les données sont perdues même si le code est parfaitement versionné dans Git.
+
+**Outil complémentaire :** **Velero** — sauvegarde les ressources Kubernetes et les snapshots de PersistentVolumes vers un stockage objet (S3, GCS, Azure Blob). En cas de disaster, Velero restaure à la fois les ressources K8s et les données, indépendamment d'ArgoCD.
+
+**Référence :** https://velero.io/docs/
+
+---
+
+#### 7. Multi-cluster
+
+**Risque concret :** `DevHub Campus` tourne sur un seul cluster local. En production, on voudrait au minimum un cluster `dev` et un cluster `prod` distincts. ArgoCD peut gérer plusieurs clusters, mais la configuration (quel cluster reçoit quelle Application, comment les credentials de chaque cluster sont stockés) n'est pas triviale et devient vite un problème de gouvernance à grande échelle.
+
+**Outil complémentaire :** le pattern **hub-and-spoke** — un cluster ArgoCD central ("hub") gère des `Application` dont la `destination.server` pointe vers des clusters distants ("spokes"). L'`ApplicationSet` avec le `cluster generator` crée automatiquement une Application par cluster enregistré. Pour la gouvernance à grande échelle (200+ clusters), des outils comme **ACM (Red Hat Advanced Cluster Management)** ou **Fleet (Rancher)** s'ajoutent au-dessus d'ArgoCD.
+
+**Référence :** https://argo-cd.readthedocs.io/en/stable/operator-manual/applicationset/generators-cluster/

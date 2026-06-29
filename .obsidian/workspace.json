@@ -11,14 +11,12 @@
             "id": "0336d3fbac5236b4",
             "type": "leaf",
             "state": {
-              "type": "markdown",
+              "type": "pdf",
               "state": {
-                "file": "REPONSES.md",
-                "mode": "source",
-                "source": false
+                "file": "POLYCOPIE-ARGOCD.pdf"
               },
-              "icon": "lucide-file",
-              "title": "REPONSES"
+              "icon": "lucide-file-text",
+              "title": "POLYCOPIE-ARGOCD"
             }
           }
         ]
@@ -185,8 +183,9 @@
   },
   "active": "0336d3fbac5236b4",
   "lastOpenFiles": [
-    "POLYCOPIE-ARGOCD.md",
     "REPONSES.md",
+    "REPONSES.md.tmp.7320.5aa5bd7d7917",
+    "POLYCOPIE-ARGOCD.md",
     "REPONSES.md.tmp.7320.6bc20f72c2ef",
     "images/step_9/metrics_screen.png",
     "images/step_9/webhook_response.png",
@@ -206,7 +205,6 @@
     "platform/argocd/values.yaml.tmp.21284.7196d55e212f",
     "REPONSES.md.tmp.35260.839940e5a7ea",
     "POLYCOPIE-ARGOCD.pdf",
-    "images/step_8/manip_6",
     "README.md"
   ]
 }
