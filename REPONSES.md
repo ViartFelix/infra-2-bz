@@ -331,3 +331,67 @@ L'UI ArgoCD confirme : le nœud `svc` a disparu du graphe de ressources. L'Appli
 ![[devhub_web_missing_ui.png]]
 
 **Conclusion :** `prune: true` rend Git la source de vérité absolue — toute ressource absente de Git disparaît du cluster à la prochaine sync. Puissant mais dangereux : supprimer un fichier par erreur supprime la ressource K8s en production sans avertissement préalable.
+
+---
+
+## Étape 9 — Sécuriser et observer ArgoCD
+
+### 1. RBAC
+
+**Configuration :** ajout d'un compte local `developer` et de deux rôles dans `platform/argocd/values.yaml` :
+
+- `platform-admin` : tous les droits sur applications, projets, dépôts et clusters.
+- `developer` : lecture (`get`) sur toutes les apps du projet `devhub`, sync autorisé uniquement sur `annuaire-*`.
+
+![[argocd_value_edit.png]]
+
+Déploiement avec `helm upgrade argocd argo/argo-cd -n argocd -f platform/argocd/values.yaml` :
+
+![[help_update.png]]
+
+Création du mot de passe du compte `developer` via `argocd account update-password` :
+
+![[dev_password_reset.png]]
+
+**Test RBAC :** connexion en tant que `developer`, tentative de sync sur `root` (refusée) puis sur `annuaire-dev` (accordée) :
+
+![[rpc_error_with_sync.png]]
+
+**Conclusion :** le compte `developer` reçoit bien un `PermissionDenied` sur `root` (hors de son périmètre) et peut syncer `annuaire-dev` sans restriction. Le RBAC ArgoCD utilise un mini-DSL (`policy.csv`) avec des règles `p, role, resource, action, scope, effect` et des bindings `g, user, role`.
+
+---
+
+### 2. Notifications
+
+**Configuration :** activation de `argocd-notifications` dans `platform/argocd/values.yaml` avec un service webhook pointant sur webhook.site, un trigger `on-sync-failed` et un template JSON contenant le nom de l'Application, la révision et l'erreur.
+
+**Déclenchement :** un hook `PreSync` volontairement défaillant (`exit 1`) provoque un `Phase: Failed` sur `annuaire-dev`. ArgoCD envoie automatiquement un `POST application/json` sur webhook.site.
+
+![[webhook_response.png]]
+
+Le payload reçu :
+```json
+{
+  "application": "annuaire-dev",
+  "revision": "53763d685b813b2452bd9b66d930bc8b1ea178e8",
+  "error": "one or more synchronization tasks completed unsuccessfully"
+}
+```
+
+**Conclusion :** une sync échouée déclenche la notification en quelques secondes. En production, ce webhook serait remplacé par un endpoint Slack ou PagerDuty pour alerter l'équipe en temps réel.
+
+---
+
+### 3. Observabilité — métriques Prometheus
+
+Les métriques sont exposées par `argocd-application-controller` sur le port `8082/metrics`. Accès via `kubectl port-forward pod/argocd-application-controller-0 -n argocd 8082:8082`.
+
+![[metrics_screen.png]]
+
+**Trois métriques utiles :**
+
+| Métrique | Unité | Utilité en cas d'incident |
+|---|---|---|
+| `argocd_app_info` | gauge (0/1 par app) | Donne en temps réel le `health_status` et `sync_status` de chaque Application. Si `health_status != "Healthy"` ou `sync_status != "Synced"`, une alerte peut être déclenchée. |
+| `argocd_app_k8s_request_total` | counter (nb de requêtes) | Compte les appels K8s par app et type de ressource. Un pic soudain indique une boucle de réconciliation ou une tempête de drift — signe qu'une ressource est modifiée en continu hors Git. |
+| `argocd_app_reconcile_count` | counter (nb de réconciliations) | Nombre total de cycles de réconciliation par app. Une valeur qui monte très vite sans sync correspondante indique un drift permanent non résolu — l'app est en conflit continu avec l'état du cluster. |

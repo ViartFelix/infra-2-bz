@@ -4,11 +4,11 @@
     "type": "split",
     "children": [
       {
-        "id": "52d3a14845194361",
+        "id": "3ed88d3acd7d1887",
         "type": "tabs",
         "children": [
           {
-            "id": "4a6395f70c111b51",
+            "id": "0336d3fbac5236b4",
             "type": "leaf",
             "state": {
               "type": "markdown",
@@ -183,31 +183,30 @@
       "bases:Créer une nouvelle base": false
     }
   },
-  "active": "4a6395f70c111b51",
+  "active": "0336d3fbac5236b4",
   "lastOpenFiles": [
-    "REPONSES.md.tmp.35260.839940e5a7ea",
-    "images/step_8/manip_6/devhub_web_missing_ui.png",
-    "images/step_8/manip_6/missing_devhub_web.png",
-    "images/step_8/manip_6/missing_debhub_web.png",
-    "images/step_8/manip_6/sync_prune_cmd.png",
-    "images/step_8/manip_6/sync_prune_cml.png",
-    "images/step_8/manip_6/Capture d’écran 2026-06-27 123232.png",
-    "POLYCOPIE-ARGOCD.pdf",
-    "REPONSES.md",
-    "images/step_8/manip_6/prune_delete_ide.png",
-    "images/step_8/manip_6/prune_delete.png",
-    "images/step_8/manip_6/Capture d’écran 2026-06-27 122949.png",
-    "images/step_8/manip_6",
-    "images/step_8/Nouveau dossier",
-    "REPONSES.md.tmp.35260.4409568b9523",
-    "images/step_8/manip_5/sync_waves.png",
-    "images/step_8/manip_5",
-    "services/annuaire/chart/templates/configmap.yaml",
-    "services/annuaire/chart/templates/deployment.yaml.tmp.35260.7db026b69485",
-    "REPONSES.md.tmp.35260.6d49ac732285",
-    "images/step_8/manip_4",
-    "services/annuaire/chart/templates/presync-hook.yaml",
     "POLYCOPIE-ARGOCD.md",
+    "REPONSES.md",
+    "REPONSES.md.tmp.7320.6bc20f72c2ef",
+    "images/step_9/metrics_screen.png",
+    "images/step_9/webhook_response.png",
+    "images/step_9/missing_tag_step_9_patch.png",
+    "images/step_9/invalid_tag_webhook.png",
+    "images/step_9/post_webhook_pull.png",
+    "images/step_9/webhook_help_upgrade.png",
+    "images/step_9/webhook_file_changes.png",
+    "platform/argocd/values.yaml.tmp.7320.40dcf756c1f4",
+    "images/step_9/rpc_error_with_sync.png",
+    "images/step_9/rpc_error.png",
+    "images/step_9/dev_password_reset.png",
+    "images/step_9",
+    "images/Nouveau dossier",
+    "platform/argocd/values.yaml.tmp.7320.ac74c62cf0fb",
+    "services/annuaire/chart/templates/service.yaml",
+    "platform/argocd/values.yaml.tmp.21284.7196d55e212f",
+    "REPONSES.md.tmp.35260.839940e5a7ea",
+    "POLYCOPIE-ARGOCD.pdf",
+    "images/step_8/manip_6",
     "README.md"
   ]
 }
