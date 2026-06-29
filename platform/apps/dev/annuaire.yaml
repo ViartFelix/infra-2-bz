@@ -8,6 +8,8 @@ kind: Application
 metadata:
   name: annuaire-dev
   namespace: argocd
+  annotations:
+    notifications.argoproj.io/subscribe.on-sync-failed.webhook-site: ""
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
