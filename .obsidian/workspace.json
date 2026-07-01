@@ -4,19 +4,21 @@
     "type": "split",
     "children": [
       {
-        "id": "3ed88d3acd7d1887",
+        "id": "b758fa94f64b1284",
         "type": "tabs",
         "children": [
           {
-            "id": "0336d3fbac5236b4",
+            "id": "efd8dbdff9fc8c17",
             "type": "leaf",
             "state": {
-              "type": "pdf",
+              "type": "markdown",
               "state": {
-                "file": "POLYCOPIE-ARGOCD.pdf"
+                "file": "REPONSES.md",
+                "mode": "source",
+                "source": false
               },
-              "icon": "lucide-file-text",
-              "title": "POLYCOPIE-ARGOCD"
+              "icon": "lucide-file",
+              "title": "REPONSES"
             }
           }
         ]
@@ -181,8 +183,13 @@
       "bases:Créer une nouvelle base": false
     }
   },
-  "active": "0336d3fbac5236b4",
+  "active": "efd8dbdff9fc8c17",
   "lastOpenFiles": [
+    "images/step_1/Diagramme argocd.png",
+    "images/step_1",
+    "images/Nouveau dossier",
+    "images/Nouveau raccourci.lnk",
+    "POLYCOPIE-ARGOCD.pdf",
     "REPONSES.md",
     "REPONSES.md.tmp.7320.5aa5bd7d7917",
     "POLYCOPIE-ARGOCD.md",
@@ -199,12 +206,8 @@
     "images/step_9/rpc_error.png",
     "images/step_9/dev_password_reset.png",
     "images/step_9",
-    "images/Nouveau dossier",
     "platform/argocd/values.yaml.tmp.7320.ac74c62cf0fb",
     "services/annuaire/chart/templates/service.yaml",
-    "platform/argocd/values.yaml.tmp.21284.7196d55e212f",
-    "REPONSES.md.tmp.35260.839940e5a7ea",
-    "POLYCOPIE-ARGOCD.pdf",
     "README.md"
   ]
 }

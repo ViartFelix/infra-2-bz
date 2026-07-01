@@ -19,21 +19,7 @@
 ## Étape 1 -  Comprendre GitOps avant d’écrire la moindre ligne
 ### 1) Schéma
 
-```
-Modèle PUSH (TP 1)                     Modèle PULL (TP 2 — GitOps)
-──────────────────────────────          ──────────────────────────────────────
-  Dev                                     Dev
-   │ git push                              │ git push
-   ▼                                       ▼
-  GitHub                                  GitHub (source de vérité)
-   │                                       │
-   ▼                                       │  polling / webhook
-  CI (GitHub Actions)                    ArgoCD controller (dans le cluster)
-   │ kubectl apply                         │  détecte le drift
-   │ (a les droits cluster)               │  réconcilie
-   ▼                                       ▼
-  Cluster Kubernetes                     Cluster Kubernetes
-```
+![[Diagramme argocd.png]]
 
 **Push** : c’est la CI qui a les clés du cluster et qui pousse les changements.
 **Pull** : ArgoCD tourne dans le cluster et tire lui-même l’état désiré depuis Git. La CI ne touche plus jamais au cluster.
