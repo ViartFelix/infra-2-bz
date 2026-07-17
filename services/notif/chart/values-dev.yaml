@@ -6,3 +6,10 @@ env:
   LOG_LEVEL: debug
 
 replicaCount: 1
+
+# Image locale chargée dans kind via `kind load docker-image` (pas encore
+# poussée sur GHCR — cf. TODO dans values.yaml).
+image:
+  repository: notif
+  tag: local
+  pullPolicy: Never

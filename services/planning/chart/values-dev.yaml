@@ -4,3 +4,10 @@ ingress:
 
 env:
   LOG_LEVEL: debug
+
+# Image locale chargée dans kind via `kind load docker-image` (pas encore
+# poussée sur GHCR — cf. TODO dans values.yaml).
+image:
+  repository: planning
+  tag: local
+  pullPolicy: Never
